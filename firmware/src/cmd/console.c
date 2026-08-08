@@ -117,11 +117,17 @@ static void console_handle_line(char *line)
             case BALANCE_MODE_LQR: bm = "lqr"; break;
             case BALANCE_MODE_PID: bm = "pid"; break;
         }
-        console_printf("st=%d pitch=%.3f vl=%.2f vr=%.2f en=%d mode=%s vx=%.2f wz=%.2f\r\n",
+        console_printf("st=%d pitch=%.3f iqL=%.2f iqR=%.2f en=%d mode=%s act=%s vx=%.2f wz=%.2f\r\n",
                        (int)app_state_get(),
                        imu->pitch_rad,
-                       fb.vel_radps[0], fb.vel_radps[1],
-                       (int)m.lqr_enable, bm, m.vx_mps, m.wz_radps);
+                       fb.current_a[0], fb.current_a[1],
+                       (int)m.lqr_enable, bm,
+#if APP_CFG_BALANCE_USE_TORQUE
+                       "torque",
+#else
+                       "speed",
+#endif
+                       m.vx_mps, m.wz_radps);
     }
     else if (!strcmp(argv[0], "imu"))
     {
@@ -223,8 +229,8 @@ static void console_handle_line(char *line)
                            g.pitch_kp, g.pitch_ki, g.pitch_kd,
                            g.vel_kp, g.vel_ki, g.vel_kd,
                            g.yaw_kp, g.yaw_ki, g.yaw_kd);
-            console_printf("foc tip: speedPI kp=%.2f ki=%.2f Iqlim=%.1fA poles=%u\r\n",
-                           FOC_SPEED_KP, FOC_SPEED_KI, FOC_SPEED_OUT_MAX_A,
+            console_printf("foc tip: Kt=%.2f Nm/A Iqlim=%.1fA poles=%u act=torque\r\n",
+                           MOTOR_SPEC_KT_NM_PER_A, FOC_SPEED_OUT_MAX_A,
                            (unsigned)MOTOR_SPEC_POLE_PAIRS);
         }
         else if (argc >= 5 && !strcmp(argv[1], "pitch"))

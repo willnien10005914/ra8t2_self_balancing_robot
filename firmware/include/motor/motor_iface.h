@@ -34,7 +34,11 @@ bool motor_enable(motor_id_t id, bool en);
 bool motor_set_mode(motor_id_t id, motor_mode_t mode);
 bool motor_set_speed_rpm(motor_id_t id, float rpm);
 bool motor_set_position_counts(motor_id_t id, int32_t counts);
+bool motor_set_torque_nm(motor_id_t id, float tau_nm);
+/** @deprecated alias — 請用 motor_set_torque_nm */
 bool motor_set_torque(motor_id_t id, float nm_or_norm);
+/** τ(Nm) → Iq(A)，含限幅。 */
+float motor_tau_to_iq_a(float tau_nm);
 void motor_get_feedback(motor_feedback_t *fb);
 void motor_estop(void);
 

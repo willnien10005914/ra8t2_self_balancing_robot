@@ -24,6 +24,15 @@
 #define MOTOR_SPEC_MAX_LOAD_KG        (80.0f)
 #define MOTOR_SPEC_IP_RATING          (55u)
 
+/*
+ * 力矩常數估算：τ_rated ≈ P / ω_rated
+ * ω = 500 rpm = 52.36 rad/s → τ≈4.78 Nm @ 5A → Kt≈0.955 Nm/A
+ * 實測後請覆寫（臺架：τ / Iq）。
+ */
+#define MOTOR_SPEC_KT_NM_PER_A        (0.955f)
+#define MOTOR_SPEC_IQ_FROM_TAU(tau_nm) ((tau_nm) / MOTOR_SPEC_KT_NM_PER_A)
+#define MOTOR_SPEC_TAU_FROM_IQ(iq_a)  ((iq_a) * MOTOR_SPEC_KT_NM_PER_A)
+
 /* 線性速度 @ 額定轉速：ωr = 2π·n/60 */
 #define MOTOR_SPEC_RATED_MPS \
     (MOTOR_SPEC_RATED_RPM * 0.104719755f * MOTOR_SPEC_RADIUS_M) /* ≈ 4.32 m/s */
@@ -33,20 +42,21 @@
     "U=Yel V=Blu W=Grn; Hall VCC/HA/HB/HC/GND/TEMP"
 
 /**
- * FSP FOC 內環（對應 Renesas AN R01AN6839 速度 PI + 電流 PI）。
- * 真正執行在 rm_motor_*；此處為建議起始增益，於 FSP Configurator / RMW 微調。
- * 本專案有感 Hall，感測層用 rm_motor_hall，控制結構仍同速度→電流級聯。
+ * FSP FOC 內環：
+ * - 平衡正式路徑：電流（扭矩）模式 — Iq* 由外環 τ 換算
+ * - 調機路徑：速度 PI → Iq*（仍可用 RMW 調）
+ * AN：R01AN6839 速度/電流 PI；本專案感測用 Hall。
  */
 #define FOC_PWM_CARRIER_HZ            (20000u)
 #define FOC_SPEED_LOOP_HZ             (1000u)
 #define FOC_CURRENT_LOOP_HZ           (20000u)
 
-/* 速度 PI：rpm error → Iq*（相對增益，上板後以 RMW 微調） */
+/* 速度 PI（僅 speed 調機模式） */
 #define FOC_SPEED_KP                  (0.08f)
 #define FOC_SPEED_KI                  (0.40f)
 #define FOC_SPEED_OUT_MAX_A           (MOTOR_SPEC_PEAK_CURRENT_A)
 
-/* 電流 PI：Id/Iq error → Vd/Vq */
+/* 電流 PI：Id/Iq error → Vd/Vq（扭矩模式只下 Iq*） */
 #define FOC_ID_KP                     (0.50f)
 #define FOC_ID_KI                     (800.0f)
 #define FOC_IQ_KP                     (0.50f)

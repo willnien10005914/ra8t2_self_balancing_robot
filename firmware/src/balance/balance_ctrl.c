@@ -7,9 +7,9 @@
 
 float g_balance_theta_bias_rad = 0.0f;
 
+/* LQR K：u = -K x，u 為共同力矩(Nm)；第二列保留擴充。辨識後覆寫。 */
 const float BALANCE_LQR_K[2][4] = {
-    /* theta, theta_dot, phi, phi_dot — 依 6.5" 高極對數輪轂微調起始值 */
-    { -48.0f, -7.5f, -1.5f, -1.1f },
+    { -28.0f, -4.5f, -1.8f, -1.4f },
     { 0.0f, 0.0f, 0.0f, 0.0f }
 };
 
@@ -21,12 +21,33 @@ static pid_t s_pid_pitch;
 static pid_t s_pid_vel;
 static pid_t s_pid_yaw;
 
+static float clampf(float v, float lo, float hi)
+{
+    if (v > hi) return hi;
+    if (v < lo) return lo;
+    return v;
+}
+
 static void clamp_cmd(float *vx, float *wz)
 {
-    if (*vx > APP_CFG_VX_MAX_MPS) *vx = APP_CFG_VX_MAX_MPS;
-    if (*vx < -APP_CFG_VX_MAX_MPS) *vx = -APP_CFG_VX_MAX_MPS;
-    if (*wz > APP_CFG_WZ_MAX_RADPS) *wz = APP_CFG_WZ_MAX_RADPS;
-    if (*wz < -APP_CFG_WZ_MAX_RADPS) *wz = -APP_CFG_WZ_MAX_RADPS;
+    *vx = clampf(*vx, -APP_CFG_VX_MAX_MPS, APP_CFG_VX_MAX_MPS);
+    *wz = clampf(*wz, -APP_CFG_WZ_MAX_RADPS, APP_CFG_WZ_MAX_RADPS);
+}
+
+static void pack_torque(balance_output_t *out, float tau_l, float tau_r,
+                        float vx, float wz)
+{
+    tau_l = clampf(tau_l, -APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM);
+    tau_r = clampf(tau_r, -APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM);
+    out->tau_l = tau_l;
+    out->tau_r = tau_r;
+    out->iq_l_a = MOTOR_SPEC_IQ_FROM_TAU(tau_l);
+    out->iq_r_a = MOTOR_SPEC_IQ_FROM_TAU(tau_r);
+    out->iq_l_a = clampf(out->iq_l_a, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
+    out->iq_r_a = clampf(out->iq_r_a, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
+    /* 診斷用運動學參考（非扭矩模式才當指令） */
+    out->v_l_mps = vx - 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
+    out->v_r_mps = vx + 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
 }
 
 void balance_init(void)
@@ -41,17 +62,16 @@ void balance_init(void)
     s_mode = BALANCE_MODE_LQR;
 #endif
 
-    /* 外環 PID：節點 pitch → 輪線速度加減量；vel → pitch lean；yaw → 差速 */
     pid_init(&s_pid_pitch,
              APP_CFG_PID_PITCH_KP, APP_CFG_PID_PITCH_KI, APP_CFG_PID_PITCH_KD,
-             -APP_CFG_VX_MAX_MPS, APP_CFG_VX_MAX_MPS, APP_CFG_VX_MAX_MPS);
+             -APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM);
     pid_init(&s_pid_vel,
              APP_CFG_PID_VEL_KP, APP_CFG_PID_VEL_KI, APP_CFG_PID_VEL_KD,
              -APP_CFG_PID_LEAN_MAX_RAD, APP_CFG_PID_LEAN_MAX_RAD,
              APP_CFG_PID_LEAN_MAX_RAD);
     pid_init(&s_pid_yaw,
              APP_CFG_PID_YAW_KP, APP_CFG_PID_YAW_KI, APP_CFG_PID_YAW_KD,
-             -APP_CFG_WZ_MAX_RADPS, APP_CFG_WZ_MAX_RADPS, APP_CFG_WZ_MAX_RADPS);
+             -APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM, APP_CFG_TAU_CMD_MAX_NM);
 }
 
 void balance_set_mode(balance_mode_t mode)
@@ -136,34 +156,22 @@ static void step_lqr(float vx, float wz, balance_output_t *out)
     {
         u_common += BALANCE_LQR_K[0][i] * x[i];
     }
+
+    /* 跟蹤前饋：需要前進時略加共同力矩（加速輪到腳下） */
+    const float v_meas = s_st.phi_dot * MOTOR_SPEC_RADIUS_M;
+    u_common += APP_CFG_LQR_TAU_FF_VX * (vx - v_meas);
+
     const float u_diff = APP_CFG_LQR_YAW_KP * (wz - s_st.psi_dot);
-
-    float v_l = vx - 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
-    float v_r = vx + 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
-    v_l += APP_CFG_LQR_VEL_BLEND * (u_common - 0.5f * u_diff);
-    v_r += APP_CFG_LQR_VEL_BLEND * (u_common + 0.5f * u_diff);
-
-    out->tau_l = u_common - 0.5f * u_diff;
-    out->tau_r = u_common + 0.5f * u_diff;
-    out->v_l_mps = v_l;
-    out->v_r_mps = v_r;
+    pack_torque(out, u_common - 0.5f * u_diff, u_common + 0.5f * u_diff, vx, wz);
 }
 
 static void step_pid(float vx, float wz, float dt, balance_output_t *out)
 {
-    /* 速度誤差 → 目標傾角（前傾加速），再用 pitch PID → 共同線速度 */
     const float v_meas = s_st.phi_dot * MOTOR_SPEC_RADIUS_M;
     const float theta_ref = pid_step(&s_pid_vel, vx - v_meas, dt);
-    const float v_common = pid_step(&s_pid_pitch, theta_ref - s_st.theta, dt);
-    const float w_cmd = pid_step(&s_pid_yaw, wz - s_st.psi_dot, dt);
-
-    const float v_l = v_common - 0.5f * APP_CFG_WHEEL_TRACK_M * w_cmd;
-    const float v_r = v_common + 0.5f * APP_CFG_WHEEL_TRACK_M * w_cmd;
-
-    out->tau_l = v_l;
-    out->tau_r = v_r;
-    out->v_l_mps = v_l;
-    out->v_r_mps = v_r;
+    const float tau_common = pid_step(&s_pid_pitch, theta_ref - s_st.theta, dt);
+    const float tau_diff = pid_step(&s_pid_yaw, wz - s_st.psi_dot, dt);
+    pack_torque(out, tau_common - 0.5f * tau_diff, tau_common + 0.5f * tau_diff, vx, wz);
 }
 
 void balance_step(const imu_sample_t *imu,
@@ -197,11 +205,4 @@ void balance_step(const imu_sample_t *imu,
     {
         step_lqr(vx, wz, out);
     }
-
-    /* 限速：不超過額定轉速對應線速度的可配置比例 */
-    const float vmax = APP_CFG_VX_MAX_MPS;
-    if (out->v_l_mps > vmax) out->v_l_mps = vmax;
-    if (out->v_l_mps < -vmax) out->v_l_mps = -vmax;
-    if (out->v_r_mps > vmax) out->v_r_mps = vmax;
-    if (out->v_r_mps < -vmax) out->v_r_mps = -vmax;
 }

@@ -15,23 +15,25 @@
 - 相線：黃 U / 藍 V / 綠 W；霍爾：紅 VCC、黃 HA、藍 HB、綠 HC、黑 GND、白溫控
 - 適用電壓範圍 DC24–100 V（建議以 36 V 系統 bring-up）
 
-## 建議控制架構（對齊常見自平衡 + Renesas FOC）
-
-ChatGPT 分享連結需登入無法抓全文；實作採業界／Renesas AN 常見級聯：
+## 建議控制架構（對齊 GPT Hoverboard 建議 + Renesas FOC）
 
 ```
 AI/Console/RC → vx,wz
         ↓
 外環 500Hz：LQR  或  PID（balmode 可切）
-        ↓ 左右輪速度參考 (rpm)
-內環 FSP FOC：速度 PI → 電流 PI (Id/Iq) → PWM
+        ↓ 左右輪扭矩 τL/τR (N·m)   ← 正式路徑（APP_CFG_BALANCE_USE_TORQUE=1）
+        ↓ Iq* = τ / Kt
+內環 FSP FOC：電流 PI (Id=0, Iq*) → PWM   （旁路速度環）
         ↑ Hall 電氣角 / 轉速
 IMU → pitch / pitch_rate / yaw_rate
 ```
 
-- **內環 PID/PI**：在 FSP `rm_motor_hall`（勿自己再疊一層電流環）
-- **外環 LQR**：多狀態穩定 + 站定（預設）
-- **外環 PID**：傾角 + 速度 lean + 偏航（參數少，適合先站起來）
+調機時可設 `APP_CFG_BALANCE_USE_TORQUE=0` 改走速度模式。
+
+- **內環電流 PI**：FSP `rm_motor_hall`（扭矩模式只下 Iq*）
+- **Kt**：`MOTOR_SPEC_KT_NM_PER_A`（由額定估算 ≈0.955，臺架後覆寫）
+- **外環 LQR**：輸出共同/差速扭矩（非 rpm）
+- **外環 PID**：傾角→τ，速度→lean，偏航→差速 τ
 
 ## Console
 

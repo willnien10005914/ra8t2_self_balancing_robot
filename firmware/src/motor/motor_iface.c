@@ -1,10 +1,24 @@
 #include "motor/motor_iface.h"
 #include "motor/motor_port.h"
+#include "motor/motor_params.h"
 
 #include <string.h>
 
 static motor_mode_t s_mode[2] = { MOTOR_MODE_DISABLED, MOTOR_MODE_DISABLED };
 static bool s_en[2];
+
+static float clampf(float v, float lo, float hi)
+{
+    if (v > hi) return hi;
+    if (v < lo) return lo;
+    return v;
+}
+
+float motor_tau_to_iq_a(float tau_nm)
+{
+    float iq = MOTOR_SPEC_IQ_FROM_TAU(tau_nm);
+    return clampf(iq, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
+}
 
 bool motor_init(void)
 {
@@ -69,18 +83,24 @@ bool motor_set_position_counts(motor_id_t id, int32_t counts)
     return ok;
 }
 
-bool motor_set_torque(motor_id_t id, float nm_or_norm)
+bool motor_set_torque_nm(motor_id_t id, float tau_nm)
 {
+    const float iq = motor_tau_to_iq_a(tau_nm);
     bool ok = true;
     if (id == MOTOR_ID_LEFT || id == MOTOR_ID_BOTH)
     {
-        ok = motor_port_torque_set(MOTOR_ID_LEFT, nm_or_norm) && ok;
+        ok = motor_port_torque_set(MOTOR_ID_LEFT, iq) && ok;
     }
     if (id == MOTOR_ID_RIGHT || id == MOTOR_ID_BOTH)
     {
-        ok = motor_port_torque_set(MOTOR_ID_RIGHT, nm_or_norm) && ok;
+        ok = motor_port_torque_set(MOTOR_ID_RIGHT, iq) && ok;
     }
     return ok;
+}
+
+bool motor_set_torque(motor_id_t id, float nm_or_norm)
+{
+    return motor_set_torque_nm(id, nm_or_norm);
 }
 
 void motor_get_feedback(motor_feedback_t *fb)
@@ -92,6 +112,7 @@ void motor_get_feedback(motor_feedback_t *fb)
 void motor_estop(void)
 {
     (void)motor_port_stop(MOTOR_ID_BOTH);
+    (void)motor_port_torque_set(MOTOR_ID_BOTH, 0.0f);
     s_en[0] = s_en[1] = false;
     s_mode[0] = s_mode[1] = MOTOR_MODE_DISABLED;
 }

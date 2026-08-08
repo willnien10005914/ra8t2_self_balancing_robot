@@ -60,10 +60,18 @@ bool motor_port_position_set(motor_id_t id, int32_t counts)
     return true;
 }
 
-bool motor_port_torque_set(motor_id_t id, float u)
+bool motor_port_torque_set(motor_id_t id, float iq_a)
 {
-    (void)id;
-    (void)u;
+    /* FSP: set q-axis current reference (A). Right wheel often polarity-inverted. */
+    iq_a = clampf(iq_a, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
+    if (id == MOTOR_ID_LEFT || id == MOTOR_ID_BOTH)
+    {
+        s_fb.current_a[0] = iq_a; /* stub: commanded Iq as feedback placeholder */
+    }
+    if (id == MOTOR_ID_RIGHT || id == MOTOR_ID_BOTH)
+    {
+        s_fb.current_a[1] = -iq_a;
+    }
     return true;
 }
 

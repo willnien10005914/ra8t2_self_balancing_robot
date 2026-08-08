@@ -12,10 +12,9 @@ extern "C" {
 
 /**
  * 外環平衡控制器：
- * - LQR：多狀態最佳回授（預設，適合已辨識模型）
- * - PID：傾角 PID + 速度/偏航 PID 級聯（先上板、少參數）
- *
- * 內環仍交給 FSP FOC 速度 PI → 電流 PI（見 motor_params.h / Renesas AN）。
+ * - LQR / PID 正式輸出左右輪 **扭矩 τ (N·m)** → Iq* = τ / Kt
+ * - 可選 debug：速度輸出 v_l/v_r（APP_CFG_BALANCE_USE_TORQUE=0）
+ * - 內環 FSP FOC 電流 PI（扭矩模式旁路速度 PI）
  */
 
 typedef enum {
@@ -41,9 +40,11 @@ typedef struct {
 } balance_state_t;
 
 typedef struct {
-    float tau_l;
-    float tau_r;
-    float v_l_mps;
+    float tau_l;     /**< Left wheel torque command (N·m). */
+    float tau_r;     /**< Right wheel torque command (N·m). */
+    float iq_l_a;    /**< Iq* left (A), derived from τ/Kt. */
+    float iq_r_a;    /**< Iq* right (A). */
+    float v_l_mps;   /**< Diagnostic / speed-mode fallback. */
     float v_r_mps;
 } balance_output_t;
 

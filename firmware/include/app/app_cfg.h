@@ -32,20 +32,24 @@ extern "C" {
 /* 相容舊宏 */
 #define APP_CFG_LQR_ON_BOOT           (APP_CFG_BALANCE_ON_BOOT)
 
-/* LQR 調參 */
-#define APP_CFG_LQR_VEL_BLEND         (0.06f)
-#define APP_CFG_LQR_YAW_KP            (2.2f)
+/* 外環輸出執行動器：1=扭矩(τ→Iq*) 建議；0=速度(rpm，僅調機) */
+#define APP_CFG_BALANCE_USE_TORQUE    (1)
 
-/* 外環 PID（balmode pid）起始增益 — 上板後用 console 調 */
-#define APP_CFG_PID_PITCH_KP          (8.0f)
+/* LQR：輸出視為扭矩(Nm)；yaw 通道為差速扭矩比例 */
+#define APP_CFG_LQR_YAW_KP            (1.8f)
+#define APP_CFG_LQR_TAU_FF_VX         (0.8f)   /* N·m per (m/s) 速度跟蹤前饋 */
+#define APP_CFG_TAU_CMD_MAX_NM        (MOTOR_SPEC_MAX_TORQUE_NM)
+
+/* 外環 PID：pitch→共同扭矩(Nm)；vel→lean(rad)；yaw→差速扭矩(Nm) */
+#define APP_CFG_PID_PITCH_KP          (45.0f)
 #define APP_CFG_PID_PITCH_KI          (0.0f)
-#define APP_CFG_PID_PITCH_KD          (0.35f)
+#define APP_CFG_PID_PITCH_KD          (2.5f)
 #define APP_CFG_PID_VEL_KP            (0.12f)
 #define APP_CFG_PID_VEL_KI            (0.02f)
 #define APP_CFG_PID_VEL_KD            (0.0f)
-#define APP_CFG_PID_YAW_KP            (1.8f)
+#define APP_CFG_PID_YAW_KP            (6.0f)
 #define APP_CFG_PID_YAW_KI            (0.0f)
-#define APP_CFG_PID_YAW_KD            (0.05f)
+#define APP_CFG_PID_YAW_KD            (0.20f)
 #define APP_CFG_PID_LEAN_MAX_RAD      (0.12f) /* ~7 deg */
 
 /** Ethernet AI box（RA8T2 GbE）。 */

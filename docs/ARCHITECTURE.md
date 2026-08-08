@@ -16,19 +16,19 @@
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  balance_ctrl @ 200–500 Hz  (balmode: LQR | PID | off)      │
-│  Inputs: IMU pitch/rate, hall wheel pos/speed, motion_cmd   │
-│  LQR: x=[θ,θ̇,φ,φ̇] → common/diff speed                      │
-│  PID: vel→lean, pitch PID→v_common, yaw PID→差速            │
-│  brake: vx=0, wz=0, keep balancer (station-keeping)         │
+│  Outputs: τL/τR (N·m) → Iq*=τ/Kt   [preferred]             │
+│           optional vL/vR speed fallback for bring-up        │
 └──────────────────────────┬──────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  FOC 內環（FSP rm_motor_hall）：速度 PI → 電流 PI → PWM     │
-│  Left + Right；Hall 120° / 15 對極（見 motor_params.h）     │
+│  FOC 內環（FSP rm_motor_hall）                               │
+│  TORQUE mode: current PI on Iq* @ 10–20 kHz                 │
+│  SPEED mode:  speed PI → Iq* (debug only)                   │
+│  Hall 120° / 15 對極（motor_params.h）                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-啟用平衡時，console/AI/RC 只改 **參考軌跡**（`vx_ref`, `wz_ref`），不要旁路外環硬推輪。手動 `mode/speed/posset` 給調機用（平衡 off）。詳見 `docs/TUNING.md`。
+平衡時 AI/Console 只改 `vx_ref`/`wz_ref`。詳見 `docs/TUNING.md`。
 
 ## Timing (recommended)
 

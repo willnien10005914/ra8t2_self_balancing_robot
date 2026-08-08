@@ -4,9 +4,9 @@
 
 以 **Renesas RA8T2 / MCK-RA8T2** + **RA Flexible Software Package (FSP)** 為基礎的雙輪（hoverboard 型 BLDC + Hall）自穩韌體骨架。
 
-- 內環：雙馬達 Hall FOC（速度 PI → 電流 PI，FSP `rm_motor_hall`；見 `motor_params.h` / Renesas FOC AN）
-- 外環：**可切換 LQR / PID**（`balmode`）；開機讀 I2C IMU（[LSM6DSK320X](https://www.st.com/en/mems-and-sensors/lsm6dsk320x.html)）
-- 輪規：6.5" Hall 輪轂 36V/250W/500rpm/15 對極（`spec/`）
+- 內環：Hall FOC **電流環**（平衡時 τ→Iq*；調機可改速度模式）
+- 外環：**可切換 LQR / PID**（`balmode`）；開機讀 I2C IMU
+- 輪規：6.5" Hall 輪轂 36V/250W/500rpm/15 對極 / Kt≈0.955（`spec/`）
 - 指令：UART Console、AI Box（UART 或 **Ethernet**）、預留遙控；`brake` 後繼續自穩並站定
 
 **可以燒錄：** 用 e² studio + FSP 建 MCK-RA8T2 專案，掛入本 repo 的 `firmware/`，接上官方馬達 sample，即可編譯並以 J-Link 下載。

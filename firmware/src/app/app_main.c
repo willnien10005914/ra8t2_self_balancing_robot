@@ -52,6 +52,20 @@ static float mps_to_rpm(float v_mps)
     return rpm;
 }
 
+static void apply_balance_output(const balance_output_t *out)
+{
+#if APP_CFG_BALANCE_USE_TORQUE
+    /* GPT 建議正式路徑：τ → Iq* → FOC 電流環（跳過速度環延遲） */
+    motor_set_mode(MOTOR_ID_BOTH, MOTOR_MODE_TORQUE);
+    motor_set_torque_nm(MOTOR_ID_LEFT, out->tau_l);
+    motor_set_torque_nm(MOTOR_ID_RIGHT, out->tau_r);
+#else
+    motor_set_mode(MOTOR_ID_BOTH, MOTOR_MODE_SPEED);
+    motor_set_speed_rpm(MOTOR_ID_LEFT, mps_to_rpm(out->v_l_mps));
+    motor_set_speed_rpm(MOTOR_ID_RIGHT, mps_to_rpm(out->v_r_mps));
+#endif
+}
+
 static void balance_period(uint32_t now_ms)
 {
     const uint32_t dt_ms = 1000u / APP_CFG_BALANCE_HZ;
@@ -135,11 +149,7 @@ static void balance_period(uint32_t now_ms)
     }
 
     balance_step(&imu, &fb, &out);
-
-    /* 外環輸出速度參考 → FOC 速度 PI（內環電流 PI 於 FSP） */
-    motor_set_mode(MOTOR_ID_BOTH, MOTOR_MODE_SPEED);
-    motor_set_speed_rpm(MOTOR_ID_LEFT, mps_to_rpm(out.v_l_mps));
-    motor_set_speed_rpm(MOTOR_ID_RIGHT, mps_to_rpm(out.v_r_mps));
+    apply_balance_output(&out);
 
     if (mc.brake || (mc.vx_mps == 0.0f && mc.wz_radps == 0.0f))
     {
@@ -164,11 +174,17 @@ void app_main(void)
 
     s_state = APP_STATE_IMU_INIT;
     console_printf("ra8t2 balance boot\r\n");
-    console_printf("wheel 6.5in %uV %uW %urpm poles=%u hall120\r\n",
+    console_printf("wheel 6.5in %uV %uW %urpm poles=%u hall120 Kt=%.2f\r\n",
                    (unsigned)MOTOR_SPEC_RATED_VOLTAGE_V,
                    (unsigned)MOTOR_SPEC_RATED_POWER_W,
                    (unsigned)MOTOR_SPEC_RATED_RPM,
-                   (unsigned)MOTOR_SPEC_POLE_PAIRS);
+                   (unsigned)MOTOR_SPEC_POLE_PAIRS,
+                   (double)MOTOR_SPEC_KT_NM_PER_A);
+#if APP_CFG_BALANCE_USE_TORQUE
+    console_printf("balance actuator=TORQUE (tau->Iq*)\r\n");
+#else
+    console_printf("balance actuator=SPEED (debug)\r\n");
+#endif
 #if APP_CFG_NET_ENABLE
     console_printf("net AI TCP/UDP port %u ip %s\r\n",
                    (unsigned)APP_CFG_NET_TCP_PORT, APP_CFG_NET_STATIC_IP);
