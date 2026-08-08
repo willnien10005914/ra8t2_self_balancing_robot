@@ -1,0 +1,46 @@
+# 編輯器 / OS
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# e² studio / FSP 產生檔（勿提交）
+/ra_cfg/
+/ra_gen/
+/script/
+/Debug/
+/Release/
+/.settings/
+/.cproject
+/.project
+*.launch
+
+# 編譯產物
+*.o
+*.a
+*.d
+*.elf
+*.map
+*.lst
+*.hex
+*.bin
+*.srec
+*.su
+*.i
+*.ii
+
+# 依賴 / 暫存
+*.log
+*.tmp
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+
+# 本機祕密 / 板級覆蓋（可選）
+secrets/
+*_local.h
