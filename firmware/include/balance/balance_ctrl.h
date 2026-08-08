@@ -1,0 +1,72 @@
+#pragma once
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "imu/imu.h"
+#include "motor/motor_iface.h"
+#include "control/pid.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * 外環平衡控制器：
+ * - LQR：多狀態最佳回授（預設，適合已辨識模型）
+ * - PID：傾角 PID + 速度/偏航 PID 級聯（先上板、少參數）
+ *
+ * 內環仍交給 FSP FOC 速度 PI → 電流 PI（見 motor_params.h / Renesas AN）。
+ */
+
+typedef enum {
+    BALANCE_MODE_OFF = 0,
+    BALANCE_MODE_LQR,
+    BALANCE_MODE_PID
+} balance_mode_t;
+
+typedef struct {
+    float vx_ref_mps;
+    float wz_ref_radps;
+    bool  brake;
+    bool  enable;
+} balance_cmd_t;
+
+typedef struct {
+    float theta;
+    float theta_dot;
+    float phi;
+    float phi_dot;
+    float psi;
+    float psi_dot;
+} balance_state_t;
+
+typedef struct {
+    float tau_l;
+    float tau_r;
+    float v_l_mps;
+    float v_r_mps;
+} balance_output_t;
+
+typedef struct {
+    float pitch_kp, pitch_ki, pitch_kd;
+    float vel_kp, vel_ki, vel_kd;
+    float yaw_kp, yaw_ki, yaw_kd;
+} balance_pid_gains_t;
+
+void balance_init(void);
+void balance_set_mode(balance_mode_t mode);
+balance_mode_t balance_get_mode(void);
+void balance_set_cmd(const balance_cmd_t *cmd);
+void balance_step(const imu_sample_t *imu,
+                  const motor_feedback_t *fb,
+                  balance_output_t *out);
+void balance_get_state(balance_state_t *st);
+bool balance_enabled(void);
+
+void balance_pid_get_gains(balance_pid_gains_t *g);
+void balance_pid_set_gains(const balance_pid_gains_t *g);
+void balance_pid_reset(void);
+
+#ifdef __cplusplus
+}
+#endif

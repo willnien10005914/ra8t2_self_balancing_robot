@@ -4,8 +4,9 @@
 
 以 **Renesas RA8T2 / MCK-RA8T2** + **RA Flexible Software Package (FSP)** 為基礎的雙輪（hoverboard 型 BLDC + Hall）自穩韌體骨架。
 
-- 內環：雙馬達 Hall 向量控制（FOC）— FSP `rm_motor_hall`
-- 外環：LQR 自穩；開機預設讀 I2C IMU（[LSM6DSK320X](https://www.st.com/en/mems-and-sensors/lsm6dsk320x.html)）
+- 內環：雙馬達 Hall FOC（速度 PI → 電流 PI，FSP `rm_motor_hall`；見 `motor_params.h` / Renesas FOC AN）
+- 外環：**可切換 LQR / PID**（`balmode`）；開機讀 I2C IMU（[LSM6DSK320X](https://www.st.com/en/mems-and-sensors/lsm6dsk320x.html)）
+- 輪規：6.5" Hall 輪轂 36V/250W/500rpm/15 對極（`spec/`）
 - 指令：UART Console、AI Box（UART 或 **Ethernet**）、預留遙控；`brake` 後繼續自穩並站定
 
 **可以燒錄：** 用 e² studio + FSP 建 MCK-RA8T2 專案，掛入本 repo 的 `firmware/`，接上官方馬達 sample，即可編譯並以 J-Link 下載。
@@ -24,6 +25,8 @@
 docs/ARCHITECTURE.md      控制階層、時序、狀態機
 docs/PROTOCOL.md          Console / AI / Ethernet / RC 協定詳述
 docs/FSP_STACK.md         e² studio FSP 模組與腳位建議
+docs/TUNING.md            依輪規 / FOC AN 調參（含 PID＋LQR）
+spec/                     6.5" 輪轂規格書 + RA8T2 FOC AN PDF
 firmware/include/         公開標頭
 firmware/src/             應用層原始碼
 firmware/fsp_notes/       匯入 e² studio 檢查清單
@@ -70,8 +73,10 @@ e² studio 產生的 `ra_gen/`、`ra_cfg/` **不進版控**（見 `.gitignore`�
 | `mode <l\|r\|both> <speed\|position\|torque>` | 逐輪模式（**建議 LQR off**） |
 | `speed <l\|r\|both> <rpm>` | 速度模式參考 |
 | `posset <l\|r\|both> <counts>` | 位置模式參考 |
-| `lqr on` / `lqr off` | 啟停自穩 |
-| `fwd <m/s>` | 前進（LQR on 時為參考速度） |
+| `lqr on` / `lqr off` | 啟停自穩（外環） |
+| `balmode lqr\|pid\|off` | 外環演算法切換 |
+| `pid` / `pid pitch\|vel\|yaw <kp> <ki> <kd>` | 讀／寫外環 PID；並提示 FOC PI |
+| `fwd <m/s>` | 前進（平衡 on 時為參考速度） |
 | `back <m/s>` | 後退 |
 | `left <rad/s>` / `right <rad/s>` | 差速轉向（兩輪車轉彎，非橫移） |
 | `turn <rad/s>` | +左 / −右 |

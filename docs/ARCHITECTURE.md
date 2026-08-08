@@ -15,26 +15,20 @@
 └──────────────────────────┬──────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  balance_lqr @ 200–500 Hz                                   │
+│  balance_ctrl @ 200–500 Hz  (balmode: LQR | PID | off)      │
 │  Inputs: IMU pitch/rate, hall wheel pos/speed, motion_cmd   │
-│  States (classic inverted-pendulum 2WD):                    │
-│    x = [θ, θ̇, φ, φ̇]  or extend [ψ, ψ̇] for yaw           │
-│  Pitch balance → common-mode torque / speed                 │
-│  Yaw / turn   → differential torque / speed                 │
-│  brake: vx=0, wz=0, keep LQR (station-keeping)              │
+│  LQR: x=[θ,θ̇,φ,φ̇] → common/diff speed                      │
+│  PID: vel→lean, pitch PID→v_common, yaw PID→差速            │
+│  brake: vx=0, wz=0, keep balancer (station-keeping)         │
 └──────────────────────────┬──────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  motor_iface  (speed OR position OR torque mode per wheel)  │
-│  Left FOC  rm_motor_hall0   │  Right FOC rm_motor_hall1     │
-│  Current loop ~10–20 kHz (FSP interrupt)                    │
-│  Hall → electrical angle + mechanical position counts       │
+│  FOC 內環（FSP rm_motor_hall）：速度 PI → 電流 PI → PWM     │
+│  Left + Right；Hall 120° / 15 對極（見 motor_params.h）     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-啟用 **LQR** 時，console/AI/RC 的前進後退與左右轉應改成改寫 LQR 的 **參考軌跡**（`vx_ref`, `wz_ref` 或 pitch offset），**不要**直接旁路關掉平衡環去開環推輪（會倒）。
-
-手動 `mode speed|position`（逐輪）設計給 **調機 / 非自穩**；`lqr on` 後 arbiter 會把輪子鎖成內部 torque/speed 模式供 LQR 使用。
+啟用平衡時，console/AI/RC 只改 **參考軌跡**（`vx_ref`, `wz_ref`），不要旁路外環硬推輪。手動 `mode/speed/posset` 給調機用（平衡 off）。詳見 `docs/TUNING.md`。
 
 ## Timing (recommended)
 

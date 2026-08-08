@@ -27,6 +27,8 @@
 | `speed <l\|r\|both> <rpm>` | 速度參考 |
 | `posset <l\|r\|both> <counts>` | 位置參考 |
 | `lqr <on\|off>` | 自穩開關 |
+| `balmode <lqr\|pid\|off>` | 外環演算法 |
+| `pid` / `pid pitch\|vel\|yaw kp ki kd` | 外環 PID 顯示／設定 |
 | `fwd <m_s>` / `back <m_s>` | 線速度 |
 | `left <rad_s>` / `right <rad_s>` / `turn <rad_s>` | 差速轉向 |
 | `brake` | `vx=wz=0`，**保持 LQR** |

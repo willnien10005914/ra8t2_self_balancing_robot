@@ -2,8 +2,10 @@
 #include "cmd/cmd_arbiter.h"
 #include "imu/imu.h"
 #include "motor/motor_iface.h"
-#include "balance/balance_lqr.h"
+#include "motor/motor_params.h"
+#include "balance/balance_ctrl.h"
 #include "app/app_main.h"
+#include "app/app_cfg.h"
 #include "util/util.h"
 
 #include <stdio.h>
@@ -99,20 +101,27 @@ static void console_handle_line(char *line)
 
     if (!strcmp(argv[0], "help"))
     {
-        console_printf("cmds: status imu pos mode speed posset lqr fwd back left right turn brake estop clear ai rc\r\n");
+        console_printf("cmds: status imu pos mode speed posset lqr balmode pid fwd back left right turn brake estop clear ai rc\r\n");
     }
     else if (!strcmp(argv[0], "status"))
     {
         const imu_sample_t *imu = imu_latest();
         motor_feedback_t fb;
         motion_cmd_t m;
+        const char *bm = "?";
         motor_get_feedback(&fb);
         cmd_arbiter_get_motion(&m);
-        console_printf("st=%d pitch=%.3f vl=%.2f vr=%.2f lqr=%d vx=%.2f wz=%.2f\r\n",
+        switch (balance_get_mode())
+        {
+            case BALANCE_MODE_OFF: bm = "off"; break;
+            case BALANCE_MODE_LQR: bm = "lqr"; break;
+            case BALANCE_MODE_PID: bm = "pid"; break;
+        }
+        console_printf("st=%d pitch=%.3f vl=%.2f vr=%.2f en=%d mode=%s vx=%.2f wz=%.2f\r\n",
                        (int)app_state_get(),
                        imu->pitch_rad,
                        fb.vel_radps[0], fb.vel_radps[1],
-                       (int)m.lqr_enable, m.vx_mps, m.wz_radps);
+                       (int)m.lqr_enable, bm, m.vx_mps, m.wz_radps);
     }
     else if (!strcmp(argv[0], "imu"))
     {
@@ -171,7 +180,84 @@ static void console_handle_line(char *line)
     }
     else if (!strcmp(argv[0], "lqr") && argc >= 2)
     {
-        inject_motion(0, 0, true, !strcmp(argv[1], "on"));
+        /* lqr on|off：啟停平衡；若 on 且目前 off 模式則切回 LQR */
+        const int on = !strcmp(argv[1], "on");
+        if (on && balance_get_mode() == BALANCE_MODE_OFF)
+        {
+            balance_set_mode(BALANCE_MODE_LQR);
+        }
+        inject_motion(0, 0, true, on);
+    }
+    else if (!strcmp(argv[0], "balmode") && argc >= 2)
+    {
+        if (!strcmp(argv[1], "lqr"))
+        {
+            balance_set_mode(BALANCE_MODE_LQR);
+            inject_motion(0, 0, true, 1);
+            console_printf("balmode=lqr\r\n");
+        }
+        else if (!strcmp(argv[1], "pid"))
+        {
+            balance_set_mode(BALANCE_MODE_PID);
+            inject_motion(0, 0, true, 1);
+            console_printf("balmode=pid\r\n");
+        }
+        else if (!strcmp(argv[1], "off"))
+        {
+            balance_set_mode(BALANCE_MODE_OFF);
+            inject_motion(0, 0, true, 0);
+            console_printf("balmode=off\r\n");
+        }
+        else
+        {
+            console_printf("balmode lqr|pid|off\r\n");
+        }
+    }
+    else if (!strcmp(argv[0], "pid"))
+    {
+        balance_pid_gains_t g;
+        balance_pid_get_gains(&g);
+        if (argc == 1)
+        {
+            console_printf("pitch=%.2f/%.2f/%.2f vel=%.2f/%.2f/%.2f yaw=%.2f/%.2f/%.2f\r\n",
+                           g.pitch_kp, g.pitch_ki, g.pitch_kd,
+                           g.vel_kp, g.vel_ki, g.vel_kd,
+                           g.yaw_kp, g.yaw_ki, g.yaw_kd);
+            console_printf("foc tip: speedPI kp=%.2f ki=%.2f Iqlim=%.1fA poles=%u\r\n",
+                           FOC_SPEED_KP, FOC_SPEED_KI, FOC_SPEED_OUT_MAX_A,
+                           (unsigned)MOTOR_SPEC_POLE_PAIRS);
+        }
+        else if (argc >= 5 && !strcmp(argv[1], "pitch"))
+        {
+            g.pitch_kp = strtof(argv[2], NULL);
+            g.pitch_ki = strtof(argv[3], NULL);
+            g.pitch_kd = strtof(argv[4], NULL);
+            balance_pid_set_gains(&g);
+            balance_pid_reset();
+            console_printf("ok pitch\r\n");
+        }
+        else if (argc >= 5 && !strcmp(argv[1], "vel"))
+        {
+            g.vel_kp = strtof(argv[2], NULL);
+            g.vel_ki = strtof(argv[3], NULL);
+            g.vel_kd = strtof(argv[4], NULL);
+            balance_pid_set_gains(&g);
+            balance_pid_reset();
+            console_printf("ok vel\r\n");
+        }
+        else if (argc >= 5 && !strcmp(argv[1], "yaw"))
+        {
+            g.yaw_kp = strtof(argv[2], NULL);
+            g.yaw_ki = strtof(argv[3], NULL);
+            g.yaw_kd = strtof(argv[4], NULL);
+            balance_pid_set_gains(&g);
+            balance_pid_reset();
+            console_printf("ok yaw\r\n");
+        }
+        else
+        {
+            console_printf("pid | pid pitch|vel|yaw <kp> <ki> <kd>\r\n");
+        }
     }
     else if (!strcmp(argv[0], "fwd") && argc >= 2)
     {
