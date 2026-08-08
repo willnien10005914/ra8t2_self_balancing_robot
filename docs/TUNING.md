@@ -57,7 +57,26 @@ pid yaw <kp> <ki> <kd>
 
 ## Bring-up
 
-1. 懸空單輪 Hall FOC + RMW 調速度/電流 PI  
-2. 雙輪 `speed` / `pos`  
-3. `balmode pid` + 扶持站立  
-4. 穩定後改 `balmode lqr` 並 offline 辨識覆寫 `BALANCE_LQR_K`
+見 **`docs/BRINGUP_PHASES.md`**（五階段：馬達 → IMU → PID → LQR 辨識 → 載人）。
+
+### 產生 / 更新 LQR K
+
+```bash
+pip install -r tools/requirements.txt
+# 編輯 params/robot_params.yaml（質量、COM、慣量、Kt…）
+python3 tools/lqr_gain_gen.py
+# 寫入 firmware/src/balance/balance_lqr_gain.c 後重新編譯
+```
+
+### 安全閾值（36V）
+
+| 檢查 | 預設 |
+|------|------|
+| UV | 30 V |
+| OV | 43 V |
+| Ibus OC | 25 A |
+| OT | 70 °C |
+| 馬達 Iq | ≤ 12 A |
+
+實作 `safety_port_read`（ADC）與 `safety_port_hw_shutdown`（POEG）。
+

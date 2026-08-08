@@ -6,6 +6,7 @@
 #include "balance/balance_ctrl.h"
 #include "app/app_main.h"
 #include "app/app_cfg.h"
+#include "safety/safety.h"
 #include "util/util.h"
 
 #include <stdio.h>
@@ -117,7 +118,7 @@ static void console_handle_line(char *line)
             case BALANCE_MODE_LQR: bm = "lqr"; break;
             case BALANCE_MODE_PID: bm = "pid"; break;
         }
-        console_printf("st=%d pitch=%.3f iqL=%.2f iqR=%.2f en=%d mode=%s act=%s vx=%.2f wz=%.2f\r\n",
+        console_printf("st=%d pitch=%.3f iqL=%.2f iqR=%.2f en=%d mode=%s act=%s vx=%.2f wz=%.2f safe=0x%04x\r\n",
                        (int)app_state_get(),
                        imu->pitch_rad,
                        fb.current_a[0], fb.current_a[1],
@@ -127,7 +128,8 @@ static void console_handle_line(char *line)
 #else
                        "speed",
 #endif
-                       m.vx_mps, m.wz_radps);
+                       m.vx_mps, m.wz_radps,
+                       (unsigned)safety_fault_mask());
     }
     else if (!strcmp(argv[0], "imu"))
     {

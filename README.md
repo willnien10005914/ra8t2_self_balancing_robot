@@ -25,7 +25,10 @@
 docs/ARCHITECTURE.md      控制階層、時序、狀態機
 docs/PROTOCOL.md          Console / AI / Ethernet / RC 協定詳述
 docs/FSP_STACK.md         e² studio FSP 模組與腳位建議
-docs/TUNING.md            依輪規 / FOC AN 調參（含 PID＋LQR）
+docs/TUNING.md            依輪規 / FOC AN 調參（含 PID＋扭矩 LQR）
+docs/BRINGUP_PHASES.md    五階段 bring-up（先 PID 再 LQR）
+params/robot_params.yaml  物理參數（給 LQR 產生器）
+tools/lqr_gain_gen.py     離線 A/B + CARE → balance_lqr_gain.c
 spec/                     6.5" 輪轂規格書 + RA8T2 FOC AN PDF
 firmware/include/         公開標頭
 firmware/src/             應用層原始碼
@@ -33,6 +36,13 @@ firmware/fsp_notes/       匯入 e² studio 檢查清單
 ```
 
 e² studio 產生的 `ra_gen/`、`ra_cfg/` **不進版控**（見 `.gitignore`）。
+
+**建議 bring-up：** 見 [`docs/BRINGUP_PHASES.md`](docs/BRINGUP_PHASES.md)。更新 LQR：
+
+```bash
+pip install -r tools/requirements.txt
+python3 tools/lqr_gain_gen.py   # 讀 params/robot_params.yaml
+```
 
 ---
 

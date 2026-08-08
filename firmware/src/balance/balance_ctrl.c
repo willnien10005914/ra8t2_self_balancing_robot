@@ -5,13 +5,7 @@
 
 #include <string.h>
 
-float g_balance_theta_bias_rad = 0.0f;
-
-/* LQR K：u = -K x，u 為共同力矩(Nm)；第二列保留擴充。辨識後覆寫。 */
-const float BALANCE_LQR_K[2][4] = {
-    { -28.0f, -4.5f, -1.8f, -1.4f },
-    { 0.0f, 0.0f, 0.0f, 0.0f }
-};
+/* BALANCE_LQR_K + g_balance_theta_bias_rad: balance_lqr_gain.c */
 
 static balance_mode_t s_mode = BALANCE_MODE_LQR;
 static balance_cmd_t s_cmd;

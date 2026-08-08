@@ -9,6 +9,7 @@
 #include "cmd/ai_link.h"
 #include "cmd/net_link.h"
 #include "cmd/rc_link.h"
+#include "safety/safety.h"
 #include "util/util.h"
 
 #include <string.h>
@@ -24,6 +25,7 @@ app_state_t app_state_get(void)
 void app_request_estop(void)
 {
     motor_estop();
+    safety_port_hw_shutdown();
     s_state = APP_STATE_FAULT_SAFE;
 }
 
@@ -31,6 +33,7 @@ void app_clear_fault(void)
 {
     if (s_state == APP_STATE_FAULT_SAFE)
     {
+        safety_clear_faults();
         s_state = APP_STATE_IDLE;
     }
 }
@@ -98,6 +101,13 @@ static void balance_period(uint32_t now_ms)
 
     motor_get_feedback(&fb);
     cmd_arbiter_get_motion(&mc);
+
+    if (safety_update() != SAFETY_OK)
+    {
+        app_request_estop();
+        console_printf("FAULT: safety mask=0x%04x\r\n", (unsigned)safety_fault_mask());
+        return;
+    }
 
     if (mc.estop)
     {
@@ -171,6 +181,7 @@ void app_main(void)
     rc_link_init();
     cmd_arbiter_init();
     balance_init();
+    safety_init();
 
     s_state = APP_STATE_IMU_INIT;
     console_printf("ra8t2 balance boot\r\n");

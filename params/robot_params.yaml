@@ -1,0 +1,55 @@
+# Hoverboard / 雙輪自平衡物理參數
+# 來源預設對齊 6.5" Hall 輪轂規格書 + 典型 36V 雙輪底盤估算。
+# 量測後請覆寫，再執行：
+#   python3 tools/lqr_gain_gen.py --params params/robot_params.yaml
+
+meta:
+  name: ra8t2_6p5in_hoverboard
+  notes: >
+    mass/COM/inertia 為原型佔位；載人前必須實測。
+    wheel 電氣參數取自 spec/6.5 inch (Hall sensor) 1.pdf。
+
+chassis:
+  mass_kg: 18.0              # 空車 + 電池粗估（載人後加大）
+  com_height_m: 0.28         # 輪軸到 COM
+  wheel_track_m: 0.45
+  body_pitch_inertia_kgm2: 0.85
+  gravity: 9.81
+
+wheel:
+  radius_m: 0.0825
+  mass_each_kg: 2.2
+  inertia_each_kgm2: 0.012   # 約 0.5*m*r^2 級估算，請臺架辨識
+  count: 2
+
+motor:
+  rated_voltage_v: 36.0
+  rated_power_w: 250.0
+  rated_rpm: 500.0
+  rated_current_a: 5.0
+  peak_current_a: 12.0
+  max_torque_nm: 8.9
+  kt_nm_per_a: 0.955
+  pole_pairs: 15
+  hall_phase_deg: 120
+  resistance_ohm: 0.35       # 佔位：測相電阻後更新
+  gear_ratio: 1.0
+
+battery:
+  nominal_v: 36.0
+  uv_v: 30.0
+  ov_v: 43.0
+  max_ibus_a: 25.0
+  ot_c: 70.0
+
+control:
+  balance_hz: 500
+  # Soft bootstrap weights (avoid huge K that immediately saturates τmax)
+  q_diag: [12.0, 1.0, 3.0, 0.4]
+  r_torque: 4.0
+  sample_time_s: 0.0
+
+safety:
+  theta_fault_rad: 0.55
+  ai_timeout_ms: 300
+  rc_timeout_ms: 200

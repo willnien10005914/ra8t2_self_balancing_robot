@@ -5,9 +5,11 @@ extern "C" {
 #endif
 
 /**
- * Offline-designed LQR gain K for u = -K x
- * state x = [theta, theta_dot, phi, phi_dot]
- * 起始值依 6.5" / 15 對極輪轂調整；正式量產前請辨識後覆寫。
+ * Offline / generated LQR gain: u_tau = sum K[0][i]*x[i]
+ * x = [theta, theta_dot, phi, phi_dot]
+ * Regenerate:
+ *   python3 tools/lqr_gain_gen.py
+ * writes firmware/src/balance/balance_lqr_gain.c
  */
 extern const float BALANCE_LQR_K[2][4];
 extern float g_balance_theta_bias_rad;

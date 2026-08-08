@@ -31,6 +31,16 @@
 
 啟用 RX 回呼 → `console_rx_byte` / `ai_link_rx_byte`。
 
+## Safety / Battery
+
+| Item | Note |
+|------|------|
+| ADC VBUS / IBUS / TEMP | 實作 `safety_port_read()` |
+| POEG / GPT disable | 實作 `safety_port_hw_shutdown()` — **硬體關斷** |
+| 軟體週期 | `safety_update()` in `app_main` |
+
+36V 閾值見 `params/robot_params.yaml` / `safety_monitor.c`。
+
 ## Ethernet（建議正式 AI Box）
 
 RA8T2 支援 Gigabit Ethernet / TSN。建議：
