@@ -287,8 +287,54 @@ brake
 - [ ] （可選）`python3 tools/lqr_gain_gen.py`  
 - [ ] Build → Debug 燒錄  
 - [ ] Console 先 `speed` 調機，再 `balmode pid`  
+- [ ] 確認開機 log：`speed lock ON vmax=0.50m/s`  
 
 更細的 import 勾選：[`firmware/fsp_notes/IMPORT.md`](firmware/fsp_notes/IMPORT.md)
+
+---
+
+# 速度安全鎖（防爆衝）— 限制與解禁
+
+## 目前預設（出廠燒錄）
+
+| 項目 | 值 |
+|------|-----|
+| 最高線速度 | **0.50 m/s**（`APP_CFG_VX_MAX_MPS`） |
+| 輪徑連動 rpm 上限 | ≈ **57.9 rpm**（6.5"=r=0.0825 m） |
+| 線性加速度 | **0.25 m/s²**（約 2 秒從 0→0.5） |
+| 轉向角速度上限 | 1.0 rad/s |
+| 執行期能否解鎖 | **否**，必須改 FW 重編燒錄 |
+
+Console / AI / RC 下的 `fwd 9.9` 也會被夾在 ±0.5 m/s；起步不會瞬間跳到目標值，而是依 `APP_CFG_AX_MAX_MPS2` **線性爬升**。
+
+開關：`firmware/include/app/app_cfg.h` 內 `APP_CFG_SPEED_SAFETY_LOCK`（預設 **1**）。
+
+## 如何解禁（提高速度）
+
+1. 編輯 `firmware/include/app/app_cfg.h`：
+   ```c
+   #define APP_CFG_SPEED_SAFETY_LOCK     (0)   /* 1=鎖 0.5m/s；0=解禁 */
+   ```
+2. （可選）在 `#else` 區塊調大：
+   ```c
+   #define APP_CFG_VX_MAX_MPS            (1.50f)
+   #define APP_CFG_AX_MAX_MPS2           (0.80f)
+   ```
+3. e² studio **重新 Build → 燒錄**。  
+4. 開機應看到 `speed lock OFF vmax=...`。
+
+> 載人前請勿隨意解禁；解禁後仍建議維持線性加速度限制。
+
+## 如何調「起步更柔／更衝」（仍 ≤ 0.5 m/s）
+
+維持 `APP_CFG_SPEED_SAFETY_LOCK=1`，只改：
+
+```c
+#define APP_CFG_AX_MAX_MPS2           (0.15f)  /* 更柔：0→0.5 約 3.3 秒 */
+#define APP_CFG_AX_MAX_MPS2           (0.50f)  /* 較快：0→0.5 約 1 秒 */
+```
+
+`vz`/`fwd` 目標仍不會超過 0.5 m/s。
 
 ---
 

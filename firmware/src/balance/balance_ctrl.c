@@ -10,6 +10,8 @@
 static balance_mode_t s_mode = BALANCE_MODE_LQR;
 static balance_cmd_t s_cmd;
 static balance_state_t s_st;
+static float s_vx_slew;
+static float s_wz_slew;
 
 static pid_t s_pid_pitch;
 static pid_t s_pid_vel;
@@ -20,6 +22,16 @@ static float clampf(float v, float lo, float hi)
     if (v > hi) return hi;
     if (v < lo) return lo;
     return v;
+}
+
+/** 線性斜率限制：每步最多改變 ax*dt，避免起步突衝。 */
+static float slew_toward(float cur, float tgt, float rate_abs, float dt)
+{
+    const float max_step = rate_abs * dt;
+    const float err = tgt - cur;
+    if (err > max_step) return cur + max_step;
+    if (err < -max_step) return cur - max_step;
+    return tgt;
 }
 
 static void clamp_cmd(float *vx, float *wz)
@@ -39,15 +51,19 @@ static void pack_torque(balance_output_t *out, float tau_l, float tau_r,
     out->iq_r_a = MOTOR_SPEC_IQ_FROM_TAU(tau_r);
     out->iq_l_a = clampf(out->iq_l_a, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
     out->iq_r_a = clampf(out->iq_r_a, -MOTOR_SPEC_PEAK_CURRENT_A, MOTOR_SPEC_PEAK_CURRENT_A);
-    /* 診斷用運動學參考（非扭矩模式才當指令） */
-    out->v_l_mps = vx - 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
-    out->v_r_mps = vx + 0.5f * APP_CFG_WHEEL_TRACK_M * wz;
+    /* 診斷用運動學參考；線速度硬限（含差速單側） */
+    out->v_l_mps = clampf(vx - 0.5f * APP_CFG_WHEEL_TRACK_M * wz,
+                          -APP_CFG_VX_MAX_MPS, APP_CFG_VX_MAX_MPS);
+    out->v_r_mps = clampf(vx + 0.5f * APP_CFG_WHEEL_TRACK_M * wz,
+                          -APP_CFG_VX_MAX_MPS, APP_CFG_VX_MAX_MPS);
 }
 
 void balance_init(void)
 {
     memset(&s_cmd, 0, sizeof(s_cmd));
     memset(&s_st, 0, sizeof(s_st));
+    s_vx_slew = 0.0f;
+    s_wz_slew = 0.0f;
 #if APP_CFG_BALANCE_MODE_DEFAULT == 2
     s_mode = BALANCE_MODE_PID;
 #elif APP_CFG_BALANCE_MODE_DEFAULT == 0
@@ -71,6 +87,8 @@ void balance_init(void)
 void balance_set_mode(balance_mode_t mode)
 {
     s_mode = mode;
+    s_vx_slew = 0.0f;
+    s_wz_slew = 0.0f;
     balance_pid_reset();
 }
 
@@ -190,6 +208,12 @@ void balance_step(const imu_sample_t *imu,
     clamp_cmd(&vx, &wz);
 
     const float dt = 1.0f / (float)APP_CFG_BALANCE_HZ;
+    /* 線性加減速：指令可瞬間變，實際參考以 AX/AWZ 斜率爬升 */
+    s_vx_slew = slew_toward(s_vx_slew, vx, APP_CFG_AX_MAX_MPS2, dt);
+    s_wz_slew = slew_toward(s_wz_slew, wz, APP_CFG_AWZ_MAX_RADPS2, dt);
+    clamp_cmd(&s_vx_slew, &s_wz_slew);
+    vx = s_vx_slew;
+    wz = s_wz_slew;
 
     if (s_mode == BALANCE_MODE_PID)
     {

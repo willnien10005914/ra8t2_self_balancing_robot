@@ -196,6 +196,14 @@ void app_main(void)
 #else
     console_printf("balance actuator=SPEED (debug)\r\n");
 #endif
+#if APP_CFG_SPEED_SAFETY_LOCK
+    console_printf("speed lock ON vmax=%.2fm/s ax=%.2fm/s2 rpm_max~%.0f\r\n",
+                   (double)APP_CFG_VX_MAX_MPS,
+                   (double)APP_CFG_AX_MAX_MPS2,
+                   (double)APP_CFG_RPM_CMD_MAX);
+#else
+    console_printf("speed lock OFF vmax=%.2fm/s\r\n", (double)APP_CFG_VX_MAX_MPS);
+#endif
 #if APP_CFG_NET_ENABLE
     console_printf("net AI TCP/UDP port %u ip %s\r\n",
                    (unsigned)APP_CFG_NET_TCP_PORT, APP_CFG_NET_STATIC_IP);

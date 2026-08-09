@@ -20,10 +20,31 @@ extern "C" {
 #define APP_CFG_WHEEL_TRACK_M         (0.45f)
 #define APP_CFG_WHEEL_RADIUS_M        (MOTOR_SPEC_RADIUS_M)
 
-/* 運動限制：額定 ~4.32m/s，自平衡取較低可操作區 */
+/*
+ * 速度安全鎖（防爆衝）
+ * - APP_CFG_SPEED_SAFETY_LOCK=1：最高線速度鎖在 0.5 m/s（依輪徑換算 rpm）
+ * - 起步/加減速採線性斜率限制（APP_CFG_AX_MAX_MPS2）
+ * - 解禁：必須改 FW（見下方註解）後重新編譯燒錄，runtime 無法解鎖
+ */
+#define APP_CFG_SPEED_SAFETY_LOCK     (1)
+
+#if APP_CFG_SPEED_SAFETY_LOCK
+#define APP_CFG_VX_MAX_MPS            (0.50f)   /* 硬上限：每秒 0.5 公尺 */
+#define APP_CFG_WZ_MAX_RADPS          (1.00f)   /* 轉向角速度上限（rad/s） */
+#define APP_CFG_AX_MAX_MPS2           (0.25f)   /* 線加速度：0→0.5 m/s 約 2 秒 */
+#define APP_CFG_AWZ_MAX_RADPS2        (0.80f)   /* 角加速度斜率 */
+#else
+/* ===== 解禁區：僅在明確需求時改 SPEED_SAFETY_LOCK=0 並調大以下值 ===== */
 #define APP_CFG_VX_MAX_MPS            (1.50f)
-#define APP_CFG_WZ_MAX_RADPS          (2.5f)
-#define APP_CFG_RPM_CMD_MAX           (MOTOR_SPEC_RATED_RPM + MOTOR_SPEC_RPM_TOL) /* 550 */
+#define APP_CFG_WZ_MAX_RADPS          (2.50f)
+#define APP_CFG_AX_MAX_MPS2           (0.80f)
+#define APP_CFG_AWZ_MAX_RADPS2        (2.00f)
+#endif
+
+/* rpm = v / r * 60 / (2π)；與輪徑連動，避免 speed 模式繞過線速度鎖 */
+#define APP_CFG_RPM_CMD_MAX \
+    ((APP_CFG_VX_MAX_MPS / APP_CFG_WHEEL_RADIUS_M) * (60.0f / 6.28318530718f))
+
 #define APP_CFG_THETA_FAULT_RAD       (0.55f)
 
 #define APP_CFG_AI_TIMEOUT_MS         (300u)

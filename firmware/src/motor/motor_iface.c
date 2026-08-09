@@ -57,6 +57,9 @@ bool motor_set_mode(motor_id_t id, motor_mode_t mode)
 
 bool motor_set_speed_rpm(motor_id_t id, float rpm)
 {
+    /* 安全鎖：換算不得超過 APP_CFG_VX_MAX_MPS 對應的 rpm */
+    if (rpm > APP_CFG_RPM_CMD_MAX) rpm = APP_CFG_RPM_CMD_MAX;
+    if (rpm < -APP_CFG_RPM_CMD_MAX) rpm = -APP_CFG_RPM_CMD_MAX;
     bool ok = true;
     if (id == MOTOR_ID_LEFT || id == MOTOR_ID_BOTH)
     {

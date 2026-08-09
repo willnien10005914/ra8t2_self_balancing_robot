@@ -52,8 +52,9 @@ pid yaw <kp> <ki> <kd>
 2. Hall 120° electrical
 3. Speed loop ~1 kHz；Current / PWM ~20 kHz（見 FOC AN）
 4. 過流門檻先用 ≤ **12 A**（`MOTOR_SPEC_PEAK_CURRENT_A`），額定區 5 A
-5. 速度指令上限 **550 rpm**（`APP_CFG_RPM_CMD_MAX`）
-6. 外環 `vx` 上限預設 1.5 m/s（遠低於額定 4.3 m/s）
+5. 速度指令上限由 **0.5 m/s × 輪徑** 換算 rpm（約 58 rpm @ 6.5"）——`APP_CFG_RPM_CMD_MAX`
+6. 外環 `vx` 硬上限預設 **0.50 m/s**（`APP_CFG_SPEED_SAFETY_LOCK=1`）；起步線性 ax=0.25 m/s²
+7. 解禁／調加速度：見 README「速度安全鎖」；須改 `app_cfg.h` 重編，runtime 不可解
 
 ## Bring-up
 
